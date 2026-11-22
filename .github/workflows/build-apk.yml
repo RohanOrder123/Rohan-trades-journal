@@ -1,0 +1,79 @@
+
+name: Build Rohan Trading Journal APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0"
+
+      - name: Install Node dependencies
+        run: npm install
+
+      - name: Prepare web directory
+        run: |
+          mkdir -p www
+          cp index.html www/
+          cp va-nlu.js www/
+          cp va-io.js www/
+          cp va-app.js www/
+          cp va-core.js www/
+          cp va-ui.js www/
+          cp va-brain.js www/
+          cp sw.js www/
+
+      - name: Build native voice bridge
+        run: npm run build:voice
+
+      - name: Add Android platform
+        run: |
+          if [ ! -d android ]; then
+            npx cap add android
+          fi
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      - name: Build Debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rohan-Trading-Journal-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
